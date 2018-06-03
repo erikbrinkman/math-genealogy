@@ -1,24 +1,19 @@
 import argparse
 import asyncio
-import collections
 import contextlib
 import itertools
 import json
 import logging
 import os
-import re
 import sys
 
 from lxml import html
-import SPARQLWrapper
 import aiohttp
 import inflection
 import tqdm
+import SPARQLWrapper
 
 
-_DIGITS = re.compile('[0-9]+')
-_NDIGITS = re.compile(r'[^\s0-9]')
-_AND = re.compile('(?! and Technology| and Mechanics|(?<=City) and Guilds) and ')
 _BACKUP = os.path.expanduser('~/.genealogy_backup')
 _WBACKUP = os.path.expanduser('~/.genealogy_wiki_backup')
 
@@ -34,7 +29,7 @@ def _tqdm(total):
 def n(string):
     return ' '.join(string.split())
 
-# FIXME Often a single degree will actually be multiple, having the titles and years separated by "/" and the universities separated by "and" and having multiple pictures e.g. 7824
+
 async def fetch_id(session, lock, mgpid):
     url = 'https://www.genealogy.math.ndsu.nodak.edu/id.php?id={:d}'.format(mgpid)
     async with lock, session.get(url) as response:
@@ -47,7 +42,7 @@ async def fetch_id(session, lock, mgpid):
 
     logging.debug('fetched %d', mgpid)
     name = n(tree.cssselect('#mainContent h2')[0].text)
-    math_scinet= tree.cssselect('#mainContent [href*="www.ams.org/mathscinet/MRAuthorID/"]')
+    math_scinet = tree.cssselect('#mainContent [href*="www.ams.org/mathscinet/MRAuthorID/"]')
     msn_id = int(math_scinet[0].attrib['href'].split('/')[-1]) if math_scinet else None
     descendants = [int(d.attrib['href'].split('=')[1]) for d
                    in tree.cssselect('#mainContent table tr td:first-child a')]
@@ -64,28 +59,11 @@ async def fetch_id(session, lock, mgpid):
 
             span, *imgs = degree.getchildren()
             inner, = span.getchildren()
-            university = _AND.split(n(inner.text or ''))
-            year = list(map(int, _DIGITS.findall(inner.tail)))
-            splits = collections.Counter(_NDIGITS.findall(inner.tail))
-            if splits:
-                (delim, _), = splits.most_common(1)
-                degree = list(map(n, span.text.split(delim)))
-            else:
-                degree = [n(span.text)]
+            university = n(inner.text or '')
+            year = n(inner.tail)
+            degree = n(span.text)
             country = [inflection.titleize(i.attrib['title'])
                        for i in imgs]
-
-            degree = degree or ['']
-            university = university or ['']
-            year = year or ['']
-            country = country or ['']
-            max_len = max(map(len, (degree, university, year, country)))
-            degree = degree if len(degree) > 1 else degree * max_len
-            university = university if len(university) > 1 else university * max_len
-            year = year if len(year) > 1 else year * max_len
-            country = country if len(country) > 1 else country * max_len
-            assert all(len(degree) == len(x) for x in (university, year, country)), \
-                "Error parsing id {:d}".format(mgpid)
 
             diss = n(dissert.cssselect('#thesisTitle')[0].text)
 
@@ -102,18 +80,16 @@ async def fetch_id(session, lock, mgpid):
             tags = (n(t).rstrip(':') for t in raw_tags)
             advisors = list(zip(tags, aids))
 
-            for deg, univ, yr, count in zip(degree, university, year, country):
-                # TODO Could filter if all are bad
-                degrees.append({
-                    'degree': deg,
-                    'university': univ,
-                    'years': yr,
-                    'country': count,
-                    'dissertation': diss,
-                    'subject_id': class_id,
-                    'subject': classification,
-                    'advisors': advisors,
-                })
+            degrees.append({
+                'degree': degree,
+                'university': university,
+                'years': year,
+                'country': country,
+                'dissertation': diss,
+                'subject_id': class_id,
+                'subject': classification,
+                'advisors': advisors,
+            })
 
     return {
         'name': name,
