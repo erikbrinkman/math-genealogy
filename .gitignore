@@ -1,0 +1,14 @@
+# Python #
+##########
+/bin
+/lib
+/lib64
+/man
+/pip-selfcheck.json
+/pyvenv.cfg
+/share
+
+# Vim #
+#######
+.*.un~
+.*.swp
