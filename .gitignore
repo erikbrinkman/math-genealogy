@@ -8,6 +8,10 @@
 /pyvenv.cfg
 /share
 
+# Node #
+########
+/node_modules
+
 # Vim #
 #######
 .*.un~

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>Math Ancestry Explorer</title>
+    <meta name="description" content="Look up relevant genealogy">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="favicon-192.png" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.css" />
+    <link rel="stylesheet" type="text/css" href="style.css" />
+
+    <script defer src="https://unpkg.com/material-components-web@latest/dist/material-components-web.js"></script>
+    <script defer src="https://d3js.org/d3.v5.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.2.1/lunr.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <script defer src="script.js"></script>
+    <script defer>
+      window.addEventListener('load', () => window.mdc.autoInit());
+    </script>
+  </head>
+  <body class="loading">
+    <header class="mdc-top-app-bar mdc-top-app-bar--fixed">
+      <div class="mdc-top-app-bar__row">
+        <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+          <a href="#" id="search-button" class="material-icons mdc-top-app-bar__navigation-icon">search</a>
+          <span class="mdc-top-app-bar__title">Math Ancestry Explorer</span>
+        </section>
+        <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end" role="toolbar">
+          <a id="info-button" class="material-icons mdc-top-app-bar__action-item" aria-label="Info" alt="Info">info</a>
+        </section>
+      </div>
+    </header>
+    <div id="content" class="mdc-top-app-bar--fixed-adjust">
+      <div>
+        <div id="spinner" class="mdc-linear-progress mdc-linear-progress--indeterminate">
+          <div class="mdc-linear-progress__buffering-dots"></div>
+          <div class="mdc-linear-progress__buffer"></div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+            <span class="mdc-linear-progress__bar-inner"></span>
+          </div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+            <span class="mdc-linear-progress__bar-inner"></span>
+          </div>
+        </div>
+        <div id="search">
+          <div id="search-box" class="mdc-text-field mdc-text-field--outlined" data-mdc-auto-init="MDCTextField">
+            <input type="text" id="my-text-field" class="mdc-text-field__input">
+            <label class="mdc-floating-label" for="my-text-field">Search</label>
+            <div class="mdc-notched-outline">
+              <svg>
+                <path class="mdc-notched-outline__path"/>
+              </svg>
+            </div>
+            <div class="mdc-notched-outline__idle"></div>
+          </div>
+          <ul id="candidates" class="mdc-list mdc-list--two-line">
+          </ul>
+        </div>
+        <svg id="tree">
+          <g id="links"></g>
+          <g id="labels"></g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Info dialogue -->
+    <aside id="info" class="mdc-dialog">
+      <div class="mdc-dialog__surface">
+        <header class="mdc-dialog__header">
+          <h2 id="my-mdc-dialog-label" class="mdc-dialog__header__title">
+            About
+          </h2>
+        </header>
+        <section id="my-mdc-dialog-description" class="mdc-dialog__body">
+          <p>
+            The math ancestry explorer provides a way to find notable mathematicians in anyone's advisorial ancestry.
+          </p>
+          <p>
+            In the search box enter key words for the mathematician of interest, e.g. their name, to get a list of known mathematicians.
+            Clicking on any result will take you to a tree of their notable ancestry.
+            Mathematicians with Wikipedia pages are labeled in orange, where darker orange corresponds to a notion of notoriety.
+            All other mathematicians are labeled in black.
+            Hovering over a node will reveal the name, orange nodes will provide links to their Wikipedia page to find more information.
+          </p>
+          <p>
+            This website was developed for chrome, ymmv with other browsers.
+            This was made by scraping the <a href="https://www.genealogy.math.ndsu.nodak.edu/index.php" target="_blank" rel="noopener">math genealogy project</a>, and so information may be slightly out of date.
+            See the <a href="https://github.com/erikbrinkman/math-genealogy" target="_blank" rel="noopener">Github</a> repository for more information.
+            Favicon taken from <a href="https://www.freepik.com/free-photos-vectors/logo">Freepik</a>.
+          </p>
+        </section>
+        <footer class="mdc-dialog__footer">
+          <button type="button" class="mdc-button mdc-dialog__footer__button mdc-dialog__footer__button--cancel">Close</button>
+        </footer>
+      </div>
+      <div class="mdc-dialog__backdrop"></div>
+    </aside>
+  </body>
+</html>

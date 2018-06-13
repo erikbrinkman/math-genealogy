@@ -1,0 +1,123 @@
+/** Page styling */
+:root {
+  --mdc-theme-primary: #4CAF50;
+  --mdc-theme-secondary: #FFC107;
+  --spin-duration: 1.4s;
+  --node-radius: 0.3rem;
+  --link-width: 0.075rem;
+  --label-show: 0.2s ease-in-out;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+#content, #content > div {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+#search-button {
+  transition: opacity 0.4s ease-in-out, padding 0.4s ease-in-out, width 0.4s ease-in-out;
+}
+
+body:not(.treeing) #search-button {
+  opacity: 0;
+  width: 0;
+  padding: 0;
+}
+
+#search {
+  max-width: 25rem;
+  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#search li.filtered {
+  height: 0;
+}
+
+#search-box {
+  display: flex;
+}
+
+#tree {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 60rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#labels > a {
+  font-size: 1rem;
+  dominant-baseline: central;
+  text-anchor: middle;
+}
+
+#labels > a[href] {
+  cursor: pointer;
+}
+
+#labels rect {
+  stroke: black;
+  stroke-width: var(--link-width);
+  z-index: 0;
+}
+
+#labels > a.rendered rect {
+  transition: x var(--label-show), rx var(--label-show), width var(--label-show), y var(--label-show), ry var(--label-show), height var(--label-show), fill var(--label-show);
+}
+
+#labels > a.rendered:not(:hover) rect {
+  x: calc(-1 * var(--node-radius)) !important;
+  y: calc(-1 * var(--node-radius)) !important;
+  width: calc(2 * var(--node-radius)) !important;
+  height: calc(2 * var(--node-radius)) !important;
+  rx: var(--node-radius);
+  ry: var(--node-radius);
+}
+
+#labels > a.rendered:hover rect {
+  fill: white !important;
+  z-index: 1;
+}
+
+#labels > a.rendered text {
+  transition: font-size var(--label-show);
+}
+
+#labels > a.rendered:not(:hover) text {
+  font-size: 0;
+}
+
+#links path {
+  stroke-width: var(--link-width);
+  stroke: black;
+  fill: none;
+}
+
+/* Alternating */
+
+#search, #tree, #spinner {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+}
+
+.searching #search, .treeing #tree, .loading #spinner {
+  opacity: 1;
+  z-index: 1;
+}
+
+/* Fix for mdc */
+.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-floating-label {
+  color: var(--mdc-theme-primary);
+}

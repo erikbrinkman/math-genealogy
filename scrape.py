@@ -198,7 +198,7 @@ async def fetch_wiki_links_batch(session, ids, *, num_simult=10, batch_size=50):
         with open(_WBACKUP, 'w') as f:
             json.dump(data, f)
         raise
-    return data
+    return [d if d else None for d in data]
 
 
 async def get_ranked_mathematicians(session, num, *, num_simult=10, batch_size=50):
@@ -221,10 +221,9 @@ async def scrape(*, progress=False):
             data[math['id']].update(math)
         else:
             logging.warning('never fetched mgp id: %d', math['id'])
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(_BACKUP)
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(_WBACKUP)
+    for fil in [_BACKUP, _WBACKUP]:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(fil)
     json.dump(data, sys.stdout)
     sys.stdout.write('\n')
 
