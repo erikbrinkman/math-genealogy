@@ -35,12 +35,11 @@ async def fetch_id(session, lock, mgpid):
     async with lock, session.get(url) as response:
         text = await response.text()
     tree = html.fromstring(text)
+    logging.debug('fetched %d', mgpid)
 
     if tree.text == 'You have specified an ID that does not exist in the database. Please back up and try again.':
-        logging.info('found no entry for id %d', mgpid)
-        return {}
+        return None
 
-    logging.debug('fetched %d', mgpid)
     name = n(tree.cssselect('#mainContent h2')[0].text)
     math_scinet = tree.cssselect('#mainContent [href*="www.ams.org/mathscinet/MRAuthorID/"]')
     msn_id = int(math_scinet[0].attrib['href'].split('/')[-1]) if math_scinet else None
@@ -106,40 +105,41 @@ async def crawl_data(session, *, progress=False, num_simult=10):
     try:
         with open(_BACKUP) as f:
             data = json.load(f)
-        existing = sum(x is not None for x in data) - 1
+        existing = sum(x is not False for x in data) - 1
         logging.info('found %d existing entries out of a known %d entries',
                      existing, len(data) - 1)
     except FileNotFoundError:
-        data = [{}, None]
+        data = [None, False]
         existing = 0
 
     with (tqdm.tqdm if progress else _tqdm)(total=len(data) - 1) as pbar:
         pbar.update(existing)
 
-        async def process(datum):
-            aids = itertools.chain.from_iterable(
-                (aid for _, aid in d['advisors']) for d in datum['degrees'])
-            new_max = 1 + max(
-                itertools.chain(datum['descendants'], aids), default=0)
-
+        async def process(gid, datum):
             futures = []
-            while len(data) < new_max:
-                gid = len(data)
-                data.append(None)
-                futures.append(fetch(gid))
+            if datum:
+                aids = itertools.chain.from_iterable(
+                    (aid for _, aid in d['advisors']) for d in datum['degrees'])
+                new_max = 1 + max(
+                    itertools.chain(datum['descendants'], aids), default=0)
 
-            pbar.total = len(data) - 1
+                while len(data) < new_max:
+                    gid = len(data)
+                    data.append(False)
+                    futures.append(fetch(gid))
+                pbar.total = len(data) - 1
+
+            data[gid] = datum
             pbar.update()
             await asyncio.gather(*futures)
 
         async def fetch(gid):
-            result = data[gid] = await fetch_id(session, lock, gid)
-            if result:
-                await process(result)
+            result = await fetch_id(session, lock, gid)
+            await process(gid, result)
 
         try:
             await asyncio.gather(*[
-                fetch(gid) for gid, d in enumerate(data) if d is None])
+                fetch(gid) for gid, d in enumerate(data) if d is False])
         except:
             logging.warning('writing backup: %s', _BACKUP)
             with open(_BACKUP, 'w') as f:
@@ -187,18 +187,19 @@ async def fetch_wiki_links_batch(session, ids, *, num_simult=10, batch_size=50):
     except FileNotFoundError:
         data = {}
 
-    ids = list(set(ids).difference(data))
+    fetch_ids = list(set(ids).difference(data))
     try:
         await asyncio.gather(*[
             fetch_wiki_links(
-                session, lock, ids[i * batch_size: (i + 1) * batch_size], data)
-            for i in range(-(-len(ids) // batch_size))])
+                session, lock,
+                fetch_ids[i * batch_size: (i + 1) * batch_size], data)
+            for i in range(-(-len(fetch_ids) // batch_size))])
     except:
         logging.warning('writing wiki backup: %s', _WBACKUP)
         with open(_WBACKUP, 'w') as f:
             json.dump(data, f)
         raise
-    return [d if d else None for d in data]
+    return [data[wid] for wid in ids]
 
 
 async def get_ranked_mathematicians(session, num, *, num_simult=10, batch_size=50):
@@ -206,8 +207,9 @@ async def get_ranked_mathematicians(session, num, *, num_simult=10, batch_size=5
     links = await fetch_wiki_links_batch(
         session, [info['wiki_id'] for info in maths], num_simult=num_simult,
         batch_size=batch_size)
-    for math in maths:
-        math['wiki_link'] = links[math['wiki_id']]
+    for math, link in zip(maths, links):
+        if link is not None:
+            math['wiki_link'] = link
     return maths
 
 
@@ -217,15 +219,19 @@ async def scrape(*, progress=False):
             crawl_data(session, progress=progress),
             get_ranked_mathematicians(session, 1000))
     for math in maths:
-        if len(data) > math['id']:
+        if len(data) > math['id'] and data[math['id']] is not None:
             data[math['id']].update(math)
         else:
-            logging.warning('never fetched mgp id: %d', math['id'])
+            logging.warning(
+                "found mathematician with mgp id %d, but it wasn't found in "
+                "scrape", math['id'])
+    json.dump(data, sys.stdout)
+    sys.stdout.write('\n')
+
+    # Remove caches
     for fil in [_BACKUP, _WBACKUP]:
         with contextlib.suppress(FileNotFoundError):
             os.remove(fil)
-    json.dump(data, sys.stdout)
-    sys.stdout.write('\n')
 
 
 async def parse(*ids, num_simult=10):
@@ -262,6 +268,7 @@ def main(argv):
         parse(*args.ids) if args.ids else scrape(progress=args.progress))
     try:
         loop.run_until_complete(task)
+        loop.close()
     except KeyboardInterrupt:
         task.cancel()
         loop.run_forever()
