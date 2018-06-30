@@ -5,11 +5,15 @@ window.addEventListener('load', async function() {
   const svg = d3.select('#tree');
   const links = svg.select('#links');
   const labels = svg.select('#labels');
-	const [ data, serial ] = await Promise.all([
-    fetch('data.json').then(r => r.json()),
-    fetch('index.json').then(r => r.json()),
-  ]);
-  const idx = lunr.Index.load(serial);
+	const data = await fetch('data.json').then(r => r.json());
+  const idx = lunr(function () {
+    this.ref('id');
+    this.field('name');
+    this.field('description');
+    this.field('countries');
+
+    data.filter(cand => cand).forEach(cand => this.add(cand));
+  });
 
   function render(root) {
     // BFS For full ancestor tree
