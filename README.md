@@ -37,8 +37,7 @@ bin/python scrape.py -p | jq -f post.jq > docs/data.json
 To Do
 -----
 
-- Switch to a DAG layout.
-  Either dagre or [own implementation](http://www.it.usyd.edu.au/~shhong/fab.pdf)
+- Get better DAG layout.
 
 
 Attribution

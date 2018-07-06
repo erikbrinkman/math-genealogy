@@ -16,64 +16,29 @@ window.addEventListener('load', async function() {
   });
 
   function render(root) {
-    // BFS For full ancestor tree
-    Object.assign(root, {parent: null, children: []});
-    const seen = new Set([root.id]);
-    const latest = [root];
-    const leafs = [];
-    while (latest.length) {
-      const next = [];
-      latest.forEach(node => {
-        node.advisors.forEach(id => {
-          if (!seen.has(id)) {
-            seen.add(id);
-            const elem = data[id];
-            if (elem !== null) { // Missing data
-              Object.assign(elem, {parent: node, children: []});
-              node.children.push(elem);
-              next.push(elem);
-            }
-          }
-        });
-        if (!node.children.length) {
-          leafs.push(node);
-        }
-      });
-      latest.splice(0, latest.length, ...next);
-    }
-
-    // Update max scores and trim branches without links
-    leafs.forEach(node => {
-      while (!node.wikiLink && node.parent && !node.children.length) {
-        const parent = node.parent;
-        parent.children.splice(parent.children.indexOf(node), 1);
-        node = parent;
-      }
-      let maxScore = node.score;
-      if (maxScore) {
-        while (node) {
-          maxScore = Math.max(maxScore, node.maxScore || 0, node.score || 0);
-          node.maxScore = maxScore
-          node = node.parent;
-        }
-      }
-    });
+    // Compute dag and filter
+    const unfiltered = d3.dagHierarchy()
+      .children(d => d.advisors.map(a => data[a]))
+      (root);
+    unfiltered.eachAfter(n => n.data.maxScore = Math.max(n.data.score, ...n.children.map(c => c.data.maxScore)));
+    const dag = d3.dagHierarchy()
+      .children(d => d.advisors.map(a => data[a]).filter(d => d.maxScore))
+      (root);
 
     // Update classes and url
     window.location.hash = `#${root.id}`;
     body.attr('class', 'treeing');
 
     // Display
-    const tree = d3.hierarchy(root);
     const { width, height } = svg.node().getBoundingClientRect();
 
     const color = d3.scaleLinear().domain([0, root.maxScore]).range(['#FFECB3', '#FF6F00']);
 
-    const labs = labels.selectAll('a').data(tree.descendants())
+    const labs = labels.selectAll('a').data(dag.nodes())
       .enter().append('a')
       .attr('target', '_blank')
       .attr('rel', 'noopener')
-      .attr('href', ({data}) => data.wikiLink);
+      .attr('href', ({ data }) => data.wikiLink);
     const rects = labs.append('rect')
       .style('stroke', ({ data }) => data.wikiLink ? color(data.score) : '#000')
       .style('fill', ({ data }) => data.wikiLink ? color(data.score) : '#000');
@@ -86,28 +51,27 @@ window.addEventListener('load', async function() {
       .style('width', (_, i) => `calc(${dims[i].width}px * 2 + 0.5rem)`)
       .style('height', (_, i) => `calc(${dims[i].height}px * 2 + 0.5rem)`)
       .nodes().map(n => n.getBoundingClientRect());
-    tree.descendants().forEach((node, i) => {
+    dag.nodes().forEach((node, i) => {
       node.data.width = rectDims[i].width;
       node.data.height = rectDims[i].height;
     });
     let { extraWidth, extraHeight } = rectDims.reduce(
         ({extraWidth, extraHeight}, {width, height}) => ({extraWidth: Math.max(width, extraWidth), extraHeight: Math.max(height, extraHeight)}),
         {extraWidth: 0, extraHeight: 0});
-    const lnks = links.selectAll('g').data(tree.descendants().slice(1))
-      .enter().append('g')
-      .append('path');
     // XXX This is necessary since z-index isn't supported yet
     labs.on('mouseover', function () {
       const dthis = d3.select(this).raise();
     });
 
-    const layout = d3.tree().separation((a, b) => Math.max(a.data.width, b.data.width))
-      .size([width - extraWidth, height - extraHeight]);
-    layout(tree);
+    d3.dagLayout().size([width - extraWidth, height - extraHeight])(dag);
 
     labs.attr('transform', ({x, y}) => `translate(${x}, ${-y})`);
-    // XXX d3 linkVertical isn't working as intended...
-    lnks.attr('d', ({ x, y, parent }) => `M${x},${-y}C${x},${(-y - parent.y) / 2} ${parent.x},${(-y - parent.y) / 2} ${parent.x},${-parent.y}`);
+    const line = d3.line().curve(d3.curveCatmullRom).x(d => d.x).y(d => -d.y);
+    links.selectAll('g').data(dag.links())
+      .enter().append('g')
+      .append('path')
+      // XXX d3 linkVertical isn't working as intended...
+      .attr('d', ({ source, target }) => `M${source.x},${-source.y}C${source.x},${(-source.y - target.y) / 2} ${target.x},${(-source.y - target.y) / 2} ${target.x},${-target.y}`);
 
     const bbox = svg.node().getBBox();
     svg.attr('viewBox', [-extraWidth / 2, extraHeight / 2 - height, width, height].join(' '));
