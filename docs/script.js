@@ -16,25 +16,25 @@ window.addEventListener('load', async function() {
   });
 
   function render(root) {
+    // Update classes and url
+    window.location.hash = `#${root.id}`;
+    body.attr('class', 'loading');
+
     // Compute dag and filter
-    const unfiltered = d3.dagHierarchy()
+    const unfiltered = d3.dierarchy()
       .children(d => d.advisors.map(a => data[a]))
       (root);
     unfiltered.eachAfter(n => n.data.maxScore = Math.max(n.data.score, ...n.children.map(c => c.data.maxScore)));
-    const dag = d3.dagHierarchy()
+    const dag = d3.dierarchy()
       .children(d => d.advisors.map(a => data[a]).filter(d => d.maxScore))
       (root);
-
-    // Update classes and url
-    window.location.hash = `#${root.id}`;
-    body.attr('class', 'treeing');
 
     // Display
     const { width, height } = svg.node().getBoundingClientRect();
 
     const color = d3.scaleLinear().domain([0, root.maxScore]).range(['#FFECB3', '#FF6F00']);
 
-    const labs = labels.selectAll('a').data(dag.nodes())
+    const labs = labels.selectAll('a').data(dag.descendants())
       .enter().append('a')
       .attr('target', '_blank')
       .attr('rel', 'noopener')
@@ -51,7 +51,7 @@ window.addEventListener('load', async function() {
       .style('width', (_, i) => `calc(${dims[i].width}px * 2 + 0.5rem)`)
       .style('height', (_, i) => `calc(${dims[i].height}px * 2 + 0.5rem)`)
       .nodes().map(n => n.getBoundingClientRect());
-    dag.nodes().forEach((node, i) => {
+    dag.descendants().forEach((node, i) => {
       node.data.width = rectDims[i].width;
       node.data.height = rectDims[i].height;
     });
@@ -63,19 +63,22 @@ window.addEventListener('load', async function() {
       const dthis = d3.select(this).raise();
     });
 
-    d3.dagLayout().size([width - extraWidth, height - extraHeight])(dag);
+    d3.sugiyama()
+      .decross(d3.decrossTwoLayer()) // Optimal decrossing is too expensive for these dags
+      .size([width - extraWidth, height - extraHeight])(dag);
 
     labs.attr('transform', ({x, y}) => `translate(${x}, ${-y})`);
-    const line = d3.line().curve(d3.curveCatmullRom).x(d => d.x).y(d => -d.y);
+    const offset = (height - extraHeight) / dag.reduce((m, n) => Math.max(m, n.layer), 0);
+    const line = d3.line().curve(d3.curveCardinalOpen).x(d => d.x).y(d => -d.y);
     links.selectAll('g').data(dag.links())
       .enter().append('g')
       .append('path')
-      // XXX d3 linkVertical isn't working as intended...
-      .attr('d', ({ source, target }) => `M${source.x},${-source.y}C${source.x},${(-source.y - target.y) / 2} ${target.x},${(-source.y - target.y) / 2} ${target.x},${-target.y}`);
+      .attr('d', ({ source, target, data}) => line([{x: source.x, y: source.y - offset}, source].concat(data.points || [], [target, {x: target.x, y: target.y + offset}])));
 
     const bbox = svg.node().getBBox();
     svg.attr('viewBox', [-extraWidth / 2, extraHeight / 2 - height, width, height].join(' '));
     labs.classed('rendered', true)
+    body.attr('class', 'treeing');
   }
 
   // Add filtering

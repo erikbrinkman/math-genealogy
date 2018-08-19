@@ -37,7 +37,7 @@ bin/python scrape.py -p | jq -f post.jq > docs/data.json
 To Do
 -----
 
-- Get better DAG layout.
+- Use service worker api to cache data and notify of reload if new data is fetched later.
 
 
 Attribution
