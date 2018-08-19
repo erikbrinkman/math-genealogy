@@ -37,6 +37,7 @@ bin/python scrape.py -p | jq -f post.jq > docs/data.json
 To Do
 -----
 
+- Use web worker api so that expensive operations don't hinder rendering.
 - Use service worker api to cache data and notify of reload if new data is fetched later.
 
 
